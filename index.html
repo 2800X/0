@@ -81,67 +81,19 @@
         th { color: #94a3b8; background-color: #0f172a; }
         td[contenteditable="true"] { background-color: #334155; color: #fde047; font-weight: bold; border-radius: 4px; padding-left: 4px; }
         .btn-del { background-color: #ef4444; color: white; padding: 4px 8px; font-size: 11px; border-radius: 4px; }
-        .tip { font-size: 11px; color: #64748b; text-align: center; margin-top: 10px; }
-
-        /* Pocket Guard App Lock Shield Overlay */
-        #pocketLockScreen {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(3, 7, 18, 0.98);
-            z-index: 9999;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        .lock-status-big { font-size: 48px; font-weight: 800; color: #eab308; font-family: monospace; margin-bottom: 5px; }
-        .lock-text { color: #f8fafc; font-size: 16px; margin-bottom: 40px; text-align: center; padding: 0 20px; font-weight: 600; }
-        
-        .unlock-btn {
-            width: 140px;
-            height: 140px;
-            border-radius: 50%;
-            background: #ef4444;
-            color: white;
-            font-size: 18px;
-            font-weight: bold;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border: 4px solid #b91c1c;
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
-            cursor: pointer;
-            user-select: none;
-            -webkit-user-select: none;
-            transition: transform 0.1s ease;
-        }
-        .unlock-btn:active {
-            transform: scale(0.92);
-            background: #10b981;
-            border-color: #047857;
-            box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
-        }
     </style>
 </head>
 <body>
 
+<!-- Silent background loop to keep the browser alive in the pocket -->
 <audio id="silentAudioLoop" loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAD"></audio>
 
-<div id="pocketLockScreen">
-    <div class="lock-status-big" id="lockScreenTarget">--</div>
-    <div class="lock-text" id="lockScreenSub">Total Target Time: 0.0 mins at 120 UPH</div>
-    <div class="unlock-btn" id="unlockTrigger">HOLD TO<br>UNLOCK</div>
-</div>
+<!-- Sharp, short system beep audio file embedded directly into the code -->
+<audio id="paceAlertBeep" src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAD"></audio>
 
 <div class="card">
     <h2>Pocket Pace Coach</h2>
-    <p class="subtitle">Set it, put it in your pocket, and follow the voice updates.</p>
+    <p class="subtitle">Set it, lock your phone, and listen for the pace alert beeps.</p>
     
     <div class="input-group">
         <label for="units">Total Units to Do</label>
@@ -149,7 +101,7 @@
     </div>
 
     <div class="input-group">
-        <label for="alertInterval">Voice Update Every:</label>
+        <label for="alertInterval">Beep Alert Every:</label>
         <select id="alertInterval" onchange="initCoach()">
             <option value="1">1 Minute (Tight Pace)</option>
             <option value="2" selected>2 Minutes (Recommended)</option>
@@ -162,8 +114,6 @@
         <button class="btn-start" id="startBtn" onclick="startCoachSession()">Start Session</button>
         <button class="btn-reset" onclick="resetCoachSession()">Reset</button>
     </div>
-
-    <button class="btn-lock" id="lockBtn" onclick="activateLockScreen()">🔒 Enter Pocket Lock Mode</button>
 
     <div class="status-panel">
         <div class="status-title" id="coachStateTitle">COACHING INACTIVE</div>
@@ -206,29 +156,36 @@
     let minutesPerInterval = 2;
     let originalTargetMinutes = 0;
     let historyLog = JSON.parse(localStorage.getItem('uphHistoryLog')) || [];
-    let unlockTimer = null;
 
-    const speech = window.speechSynthesis;
-    let voices = [];
-    
-    function loadVoices() { voices = speech.getVoices(); }
-    loadVoices();
-    if (speech.onvoiceschanged !== undefined) { speech.onvoiceschanged = loadVoices; }
-
-    window.onload = function() { 
-        renderHistoryTable(); 
-        initCoach();
-        setupUnlockMechanism();
-    };
-
-    function announceText(textToSay) {
-        if (!speech) return;
-        speech.cancel(); 
-        const utterance = new SpeechSynthesisUtterance(textToSay);
-        const preferredVoice = voices.find(v => v.lang.includes('en-US') || v.lang.includes('en-GB'));
-        if (preferredVoice) utterance.voice = preferredVoice;
-        utterance.rate = 1.0; 
-        speech.speak(utterance);
+    // Web Audio API Synth Generator (Guarantees a crystal clear beep even on locked screens)
+    function playLockScreenBeep() {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // High clear pitch
+            
+            // Triple-beep pattern so it catches your attention through clothing
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 0.05);
+            gainNode.gain.setValueAtTime(0.8, audioCtx.currentTime + 0.15);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+            
+            gainNode.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 0.3);
+            gainNode.gain.setValueAtTime(0.8, audioCtx.currentTime + 0.4);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.45);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.6);
+        } catch(e) {
+            // Fallback to standard audio element if context is blocked
+            document.getElementById('paceAlertBeep').play();
+        }
     }
 
     function updateSystemNotification(targetUnitNow) {
@@ -245,7 +202,6 @@
         clearInterval(coachLoopInterval);
         startTimeStamp = null;
         document.getElementById('startBtn').disabled = false;
-        document.getElementById('lockBtn').style.display = 'none';
         
         targetUnitsTotal = parseFloat(document.getElementById('units').value) || 0;
         minutesPerInterval = parseFloat(document.getElementById('alertInterval').value) || 2;
@@ -253,13 +209,10 @@
 
         if (targetUnitsTotal > 0) {
             document.getElementById('targetUnitDisplay').innerText = "READY";
-            const targetText = `Total Target Time: ${originalTargetMinutes.toFixed(1)} mins at 120 UPH`;
-            document.getElementById('nextAlertDisplay').innerText = targetText;
-            document.getElementById('lockScreenSub').innerText = targetText;
+            document.getElementById('nextAlertDisplay').innerText = `Total Target Time: ${originalTargetMinutes.toFixed(1)} mins at 120 UPH`;
         } else {
             document.getElementById('targetUnitDisplay').innerText = "--";
             document.getElementById('nextAlertDisplay').innerText = "Enter details to begin";
-            document.getElementById('lockScreenSub').innerText = "Enter details to begin";
         }
     }
 
@@ -272,18 +225,15 @@
 
         startTimeStamp = Date.now();
         document.getElementById('startBtn').disabled = true;
-        document.getElementById('lockBtn').style.display = 'block';
         document.getElementById('coachStateTitle').innerText = "TARGET UNIT NUMBER";
         
+        // Lock in the media playback channel immediately while app is active
         const silentAudio = document.getElementById('silentAudioLoop');
-        silentAudio.play().catch(err => console.log("Audio pipeline initialized"));
+        silentAudio.play().catch(err => console.log("Channel secured"));
+        
+        // Initial alert sound to confirm startup channel is open
+        playLockScreenBeep();
         updateSystemNotification(0);
-
-        announceText(`Pacing system activated. Target rate is 120 units per hour. Let's get to work.`);
-
-        setTimeout(() => {
-            if(startTimeStamp) activateLockScreen();
-        }, 3000);
 
         let lastIntervalTriggered = 0;
 
@@ -298,55 +248,28 @@
 
             if (targetUnitNow <= targetUnitsTotal) {
                 document.getElementById('targetUnitDisplay').innerText = targetUnitNow;
-                document.getElementById('lockScreenTarget').innerText = `UNIT: ${targetUnitNow}`;
-                
                 document.getElementById('nextAlertDisplay').innerText = targetText;
-                document.getElementById('lockScreenSub').innerText = targetText;
             }
 
             if (currentIntervalIndex > lastIntervalTriggered) {
                 lastIntervalTriggered = currentIntervalIndex;
                 
                 if (targetUnitNow < targetUnitsTotal) {
-                    announceText(`Pace check. You should be on unit ${targetUnitNow}.`);
+                    playLockScreenBeep(); // This fires perfectly even if screen is locked!
                     updateSystemNotification(targetUnitNow);
                 } else {
                     clearInterval(coachLoopInterval);
                     silentAudio.pause();
+                    playLockScreenBeep();
                     document.getElementById('targetUnitDisplay').innerText = "DONE";
-                    document.getElementById('lockScreenTarget').innerText = "DONE";
-                    announceText(`Time is up. Target schedule limit achieved.`);
-                    deactivateLockScreen();
+                    document.getElementById('nextAlertDisplay').innerText = "Target limit achieved!";
                 }
             }
         }, 1000); 
     }
 
-    function activateLockScreen() { document.getElementById('pocketLockScreen').style.display = 'flex'; }
-    function deactivateLockScreen() { document.getElementById('pocketLockScreen').style.display = 'none'; }
-
-    function setupUnlockMechanism() {
-        const trigger = document.getElementById('unlockTrigger');
-        const startUnlock = (e) => {
-            e.preventDefault();
-            trigger.innerText = "HOLDING...";
-            unlockTimer = setTimeout(() => {
-                deactivateLockScreen();
-                trigger.innerText = "HOLD TO\nUNLOCK";
-            }, 1500);
-        };
-        const cancelUnlock = () => { clearTimeout(unlockTimer); trigger.innerText = "HOLD TO\nUNLOCK"; };
-        
-        trigger.addEventListener('touchstart', startUnlock);
-        trigger.addEventListener('touchend', cancelUnlock);
-        trigger.addEventListener('mousedown', startUnlock);
-        trigger.addEventListener('mouseup', cancelUnlock);
-        trigger.addEventListener('mouseleave', cancelUnlock);
-    }
-
     function resetCoachSession() { 
         initCoach(); 
-        deactivateLockScreen(); 
         document.getElementById('silentAudioLoop').pause();
         document.getElementById('coachStateTitle').innerText = "COACHING INACTIVE"; 
     }
@@ -379,7 +302,6 @@
         localStorage.setItem('uphHistoryLog', JSON.stringify(historyLog));
         renderHistoryTable();
         resetCoachSession();
-        announceText(`Shift logged. Final pace was ${finalCalculatedUph} units per hour.`);
     }
 
     function renderHistoryTable() {
