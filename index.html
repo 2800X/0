@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Pace Coach">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <title>Hands-Free UPH Pacing Coach</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .card {
+            background: #1e293b;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 440px;
+            box-sizing: border-box;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
+        }
+        h2 { margin-top: 0; color: #f1f5f9; text-align: center; font-size: 24px; letter-spacing: -0.5px; }
+        p.subtitle { text-align: center; color: #94a3b8; font-size: 14px; margin-top: -8px; margin-bottom: 24px; }
+        .input-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; color: #cbd5e1; font-size: 14px; }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            background: #0f172a;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 16px;
+            color: white;
+        }
+        
+        .status-panel {
+            background: #0f172a;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 20px 0;
+            border: 1px solid #334155;
+        }
+        .status-title { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 4px; }
+        .status-big { font-size: 36px; font-weight: 800; color: #38bdf8; font-family: monospace; }
+        .status-sub { font-size: 14px; color: #e2e8f0; margin-top: 8px; font-weight: 600; }
+
+        .btn-row { display: flex; gap: 10px; margin-bottom: 16px; }
+        button { padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; }
+        .btn-start { background-color: #10b981; color: white; flex: 2; }
+        .btn-reset { background-color: #475569; color: #f1f5f9; flex: 1; }
+        .btn-lock { background-color: #eab308; color: #0f172a; width: 100%; margin-bottom: 10px; display: none; }
+        .btn-manual { background-color: #2563eb; color: white; width: 100%; margin-top: 5px; }
+
+        .time-row { display: flex; gap: 10px; }
+        .section-divider { border-top: 1px dashed #475569; margin: 24px 0; text-align: center; }
+        .section-divider span { background: #1e293b; padding: 0 12px; color: #64748b; font-size: 11px; position: relative; top: -10px; font-weight: bold; }
+
+        .history-card { background: #1e293b; padding: 20px; border-radius: 16px; width: 100%; max-width: 440px; box-sizing: border-box; border: 1px solid #334155; }
+        h3 { font-size: 18px; color: #f1f5f9; margin-top: 0; margin-bottom: 12px; text-align: center;}
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { padding: 10px 8px; border-bottom: 1px solid #334155; text-align: left; }
+        th { color: #94a3b8; background-color: #0f172a; }
+        td[contenteditable="true"] { background-color: #334155; color: #fde047; font-weight: bold; border-radius: 4px; padding-left: 4px; }
+        .btn-del { background-color: #ef4444; color: white; padding: 4px 8px; font-size: 11px; border-radius: 4px; }
+        .tip { font-size: 11px; color: #64748b; text-align: center; margin-top: 10px; }
+
+        /* Pocket Guard App Lock Shield Overlay */
+        #pocketLockScreen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(3, 7, 18, 0.98);
+            z-index: 9999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .lock-status-big { font-size: 48px; font-weight: 800; color: #eab308; font-family: monospace; margin-bottom: 5px; }
+        .lock-text { color: #f8fafc; font-size: 16px; margin-bottom: 40px; text-align: center; padding: 0 20px; font-weight: 600; }
+        
+        .unlock-btn {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: #ef4444;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 4px solid #b91c1c;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            transition: transform 0.1s ease;
+        }
+        .unlock-btn:active {
+            transform: scale(0.92);
+            background: #10b981;
+            border-color: #047857;
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
+        }
+    </style>
+</head>
+<body>
+
+<audio id="silentAudioLoop" loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAD"></audio>
+
+<div id="pocketLockScreen">
+    <div class="lock-status-big" id="lockScreenTarget">--</div>
+    <div class="lock-text" id="lockScreenSub">Total Target Time: 0.0 mins at 120 UPH</div>
+    <div class="unlock-btn" id="unlockTrigger">HOLD TO<br>UNLOCK</div>
+</div>
+
+<div class="card">
+    <h2>Pocket Pace Coach</h2>
+    <p class="subtitle">Set it, put it in your pocket, and follow the voice updates.</p>
+    
+    <div class="input-group">
+        <label for="units">Total Units to Do</label>
+        <input type="number" id="units" placeholder="e.g., 97" inputmode="numeric" oninput="initCoach()">
+    </div>
+
+    <div class="input-group">
+        <label for="alertInterval">Voice Update Every:</label>
+        <select id="alertInterval" onchange="initCoach()">
+            <option value="1">1 Minute (Tight Pace)</option>
+            <option value="2" selected>2 Minutes (Recommended)</option>
+            <option value="3">3 Minutes</option>
+            <option value="5">5 Minutes</option>
+        </select>
+    </div>
+
+    <div class="btn-row">
+        <button class="btn-start" id="startBtn" onclick="startCoachSession()">Start Session</button>
+        <button class="btn-reset" onclick="resetCoachSession()">Reset</button>
+    </div>
+
+    <button class="btn-lock" id="lockBtn" onclick="activateLockScreen()">🔒 Enter Pocket Lock Mode</button>
+
+    <div class="status-panel">
+        <div class="status-title" id="coachStateTitle">COACHING INACTIVE</div>
+        <div class="status-big" id="targetUnitDisplay">--</div>
+        <div class="status-sub" id="nextAlertDisplay">Enter details to begin</div>
+    </div>
+
+    <div class="section-divider">
+        <span>END OF SHIFT OVERRIDE</span>
+    </div>
+
+    <label>Remaining Time Left on Watch at Completion</label>
+    <div class="input-group time-row">
+        <input type="number" id="watchMins" placeholder="Min" inputmode="numeric" min="0">
+        <input type="number" id="watchSecs" placeholder="Sec" inputmode="numeric" min="0" max="59">
+    </div>
+    <button class="btn-manual" onclick="calculateFromWatchOverride()">Calculate & Log Shift From Watch</button>
+</div>
+
+<div class="history-card">
+    <h3>Shift Performance History</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Units</th>
+                <th>Mins</th>
+                <th>UPH</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="logTableBody"></tbody>
+    </table>
+</div>
+
+<script>
+    let startTimeStamp = null;
+    let coachLoopInterval = null;
+    let targetUnitsTotal = 0;
+    let minutesPerInterval = 2;
+    let originalTargetMinutes = 0;
+    let historyLog = JSON.parse(localStorage.getItem('uphHistoryLog')) || [];
+    let unlockTimer = null;
+
+    const speech = window.speechSynthesis;
+    let voices = [];
+    
+    function loadVoices() { voices = speech.getVoices(); }
+    loadVoices();
+    if (speech.onvoiceschanged !== undefined) { speech.onvoiceschanged = loadVoices; }
+
+    window.onload = function() { 
+        renderHistoryTable(); 
+        initCoach();
+        setupUnlockMechanism();
+    };
+
+    function announceText(textToSay) {
+        if (!speech) return;
+        speech.cancel(); 
+        const utterance = new SpeechSynthesisUtterance(textToSay);
+        const preferredVoice = voices.find(v => v.lang.includes('en-US') || v.lang.includes('en-GB'));
+        if (preferredVoice) utterance.voice = preferredVoice;
+        utterance.rate = 1.0; 
+        speech.speak(utterance);
+    }
+
+    function updateSystemNotification(targetUnitNow) {
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: `Target Unit: ${targetUnitNow}`,
+                artist: `Shift Goal: ${targetUnitsTotal} Units`,
+                album: `Target Time: ${originalTargetMinutes.toFixed(1)} mins`
+            });
+        }
+    }
+
+    function initCoach() {
+        clearInterval(coachLoopInterval);
+        startTimeStamp = null;
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('lockBtn').style.display = 'none';
+        
+        targetUnitsTotal = parseFloat(document.getElementById('units').value) || 0;
+        minutesPerInterval = parseFloat(document.getElementById('alertInterval').value) || 2;
+        originalTargetMinutes = targetUnitsTotal / 2;
+
+        if (targetUnitsTotal > 0) {
+            document.getElementById('targetUnitDisplay').innerText = "READY";
+            const targetText = `Total Target Time: ${originalTargetMinutes.toFixed(1)} mins at 120 UPH`;
+            document.getElementById('nextAlertDisplay').innerText = targetText;
+            document.getElementById('lockScreenSub').innerText = targetText;
+        } else {
+            document.getElementById('targetUnitDisplay').innerText = "--";
+            document.getElementById('nextAlertDisplay').innerText = "Enter details to begin";
+            document.getElementById('lockScreenSub').innerText = "Enter details to begin";
+        }
+    }
+
+    function startCoachSession() {
+        targetUnitsTotal = parseFloat(document.getElementById('units').value) || 0;
+        if (targetUnitsTotal <= 0) {
+            alert("Please enter your total units first.");
+            return;
+        }
+
+        startTimeStamp = Date.now();
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('lockBtn').style.display = 'block';
+        document.getElementById('coachStateTitle').innerText = "TARGET UNIT NUMBER";
+        
+        const silentAudio = document.getElementById('silentAudioLoop');
+        silentAudio.play().catch(err => console.log("Audio pipeline initialized"));
+        updateSystemNotification(0);
+
+        announceText(`Pacing system activated. Target rate is 120 units per hour. Let's get to work.`);
+
+        setTimeout(() => {
+            if(startTimeStamp) activateLockScreen();
+        }, 3000);
+
+        let lastIntervalTriggered = 0;
+
+        coachLoopInterval = setInterval(() => {
+            if (!startTimeStamp) return;
+
+            const elapsedMinutes = (Date.now() - startTimeStamp) / 60000;
+            const currentIntervalIndex = Math.floor(elapsedMinutes / minutesPerInterval);
+            const targetUnitNow = Math.round(elapsedMinutes * 2);
+
+            const targetText = `Total Target Time: ${originalTargetMinutes.toFixed(1)} mins at 120 UPH`;
+
+            if (targetUnitNow <= targetUnitsTotal) {
+                document.getElementById('targetUnitDisplay').innerText = targetUnitNow;
+                document.getElementById('lockScreenTarget').innerText = `UNIT: ${targetUnitNow}`;
+                
+                document.getElementById('nextAlertDisplay').innerText = targetText;
+                document.getElementById('lockScreenSub').innerText = targetText;
+            }
+
+            if (currentIntervalIndex > lastIntervalTriggered) {
+                lastIntervalTriggered = currentIntervalIndex;
+                
+                if (targetUnitNow < targetUnitsTotal) {
+                    announceText(`Pace check. You should be on unit ${targetUnitNow}.`);
+                    updateSystemNotification(targetUnitNow);
+                } else {
+                    clearInterval(coachLoopInterval);
+                    silentAudio.pause();
+                    document.getElementById('targetUnitDisplay').innerText = "DONE";
+                    document.getElementById('lockScreenTarget').innerText = "DONE";
+                    announceText(`Time is up. Target schedule limit achieved.`);
+                    deactivateLockScreen();
+                }
+            }
+        }, 1000); 
+    }
+
+    function activateLockScreen() { document.getElementById('pocketLockScreen').style.display = 'flex'; }
+    function deactivateLockScreen() { document.getElementById('pocketLockScreen').style.display = 'none'; }
+
+    function setupUnlockMechanism() {
+        const trigger = document.getElementById('unlockTrigger');
+        const startUnlock = (e) => {
+            e.preventDefault();
+            trigger.innerText = "HOLDING...";
+            unlockTimer = setTimeout(() => {
+                deactivateLockScreen();
+                trigger.innerText = "HOLD TO\nUNLOCK";
+            }, 1500);
+        };
+        const cancelUnlock = () => { clearTimeout(unlockTimer); trigger.innerText = "HOLD TO\nUNLOCK"; };
+        
+        trigger.addEventListener('touchstart', startUnlock);
+        trigger.addEventListener('touchend', cancelUnlock);
+        trigger.addEventListener('mousedown', startUnlock);
+        trigger.addEventListener('mouseup', cancelUnlock);
+        trigger.addEventListener('mouseleave', cancelUnlock);
+    }
+
+    function resetCoachSession() { 
+        initCoach(); 
+        deactivateLockScreen(); 
+        document.getElementById('silentAudioLoop').pause();
+        document.getElementById('coachStateTitle').innerText = "COACHING INACTIVE"; 
+    }
+
+    function calculateFromWatchOverride() {
+        const units = parseFloat(document.getElementById('units').value) || 0;
+        const watchMins = parseFloat(document.getElementById('watchMins').value) || 0;
+        const watchSecs = parseFloat(document.getElementById('watchSecs').value) || 0;
+
+        if (units <= 0) { alert("Please enter total units first."); return; }
+
+        const baselineTargetSeconds = (units / 2) * 60;
+        const remainingSecondsOnClock = (watchMins * 60) + watchSecs;
+        const absoluteSpentSeconds = baselineTargetSeconds - remainingSecondsOnClock;
+
+        if (absoluteSpentSeconds <= 0) { alert("The remaining time entered is invalid."); return; }
+
+        const finalCalculatedUph = Math.round(units / (absoluteSpentSeconds / 3600));
+        const minutesSpentFormatted = parseFloat((absoluteSpentSeconds / 60).toFixed(2));
+
+        const logEntry = {
+            id: Date.now(),
+            date: new Date().toLocaleDateString(undefined, {month: 'numeric', day: 'numeric'}),
+            units: units,
+            minutesSpent: minutesSpentFormatted,
+            uph: finalCalculatedUph
+        };
+
+        historyLog.unshift(logEntry);
+        localStorage.setItem('uphHistoryLog', JSON.stringify(historyLog));
+        renderHistoryTable();
+        resetCoachSession();
+        announceText(`Shift logged. Final pace was ${finalCalculatedUph} units per hour.`);
+    }
+
+    function renderHistoryTable() {
+        const tbody = document.getElementById('logTableBody');
+        tbody.innerHTML = '';
+        historyLog.forEach((entry) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${entry.date}</td>
+                <td contenteditable="true" onblur="editLogItem(${entry.id}, 'units', this.innerText)">${entry.units}</td>
+                <td contenteditable="true" onblur="editLogItem(${entry.id}, 'minutesSpent', this.innerText)">${entry.minutesSpent}</td>
+                <td style="font-weight:bold; color:${entry.uph >= 120 ? '#4ade80':'#f87171'};">${entry.uph}</td>
+                <td><button class="btn-del" onclick="deleteLogItem(${entry.id})">Del</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function deleteLogItem(id) {
+        historyLog = historyLog.filter(item => item.id !== id);
+        localStorage.setItem('uphHistoryLog', JSON.stringify(historyLog));
+        renderHistoryTable();
+    }
+
+    function editLogItem(id, field, value) {
+        const item = historyLog.find(i => i.id === id);
+        if (!item) return;
+        let parsed = parseFloat(value);
+        if (isNaN(parsed) || parsed <= 0) { renderHistoryTable(); return; }
+        item[field] = parsed;
+        item.uph = Math.round(item.units / (item.minutesSpent / 60));
+        localStorage.setItem('uphHistoryLog', JSON.stringify(historyLog));
+        renderHistoryTable();
+    }
+</script>
+</body>
+</html>
